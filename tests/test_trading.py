@@ -6,6 +6,11 @@ from defi_manager.adapters.dex import FixedPriceDexAdapter, SwapQuote
 from defi_manager.adapters.swap import SwapIntentBuilder
 from defi_manager.domain.quote_risk import QuoteRiskEvaluator
 from defi_manager.domain.risk import RiskPolicy
+from defi_manager.domain.models import PnLTracker, PortfolioState
+from defi_manager.core.events import EventBus
+from defi_manager.core.safety import AutomationSafetyController
+from defi_manager.simulation.environment import SimulationEnvironment
+from defi_manager.domain.preflight import ExecutionPreflight
 from defi_manager.trading.backtest import BacktestConfig, BacktestRunner, ExitPolicy
 from defi_manager.trading.market import Candle, InMemoryMarketDataProvider
 from defi_manager.trading.strategy import MovingAverageCrossStrategy, RsiStrategy, Signal
@@ -43,14 +48,14 @@ class TradingTests(unittest.TestCase):
             10,
             Decimal("3"),
         )
-        intent = SwapIntentBuilder().build(quote)
+        intent = SwapIntentBuilder().build(quote, Decimal("2000"))
         self.assertEqual(intent.asset, "ETH")
         self.assertEqual(intent.quantity, Decimal("2"))
-        self.assertEqual(intent.price_usd, Decimal("0.0005"))
+        self.assertEqual(intent.price_usd, Decimal("2000"))
         self.assertEqual(intent.slippage_bps, 100)
         self.assertEqual(intent.estimated_fee_usd, Decimal("3"))
 
-    def test_quote_risk_rejects_excessive_impact_and_gas(self) -> None:
+    def test_quote_to_preflight_to_simulation_is_gated(self) -> None:\n        events = EventBus()\n        safety = AutomationSafetyController(events)\n        portfolio = PortfolioState(cash_usd=Decimal("10000"))\n        pnl = PnLTracker()\n        risk = RiskManager(RiskPolicy(Decimal("5000"), Decimal("100"), 100, max_price_impact_bps=50, max_gas_usd=Decimal("5")))\n        simulation = SimulationEnvironment(portfolio, pnl, risk, events, safety)\n        adapter = FixedPriceDexAdapter({"ETH": Decimal("2000"), "USDC": Decimal("1")}, gas_usd=Decimal("2"))\n        quote = adapter.quote_exact_input("ETH", "USDC", Decimal("1"), 50)\n        intent = SwapIntentBuilder().build(quote, Decimal("2000"))\n        result = simulation.execute_with_preflight(quote, intent, ExecutionPreflight(QuoteRiskEvaluator(risk._policy), risk))\n        self.assertTrue(result.allowed)\n        self.assertEqual(portfolio.positions["ETH"].quantity, Decimal("1"))\n\n    def test_quote_risk_rejects_excessive_impact_and_gas(self) -> None:
         policy = RiskPolicy(Decimal("1000"), Decimal("100"), 100, max_price_impact_bps=50, max_gas_usd=Decimal("5"))
         evaluator = QuoteRiskEvaluator(policy)
         quote = SwapQuote("test", "ETH", "USDC", Decimal("1"), Decimal("2000"), Decimal("1980"), 100, Decimal("1"))

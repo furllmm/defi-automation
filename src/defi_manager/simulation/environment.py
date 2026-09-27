@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from decimal import Decimal
 from defi_manager.core.events import Event, EventBus
 from defi_manager.core.safety import AutomationSafetyController
@@ -34,7 +35,8 @@ class SimulationEnvironment:
     def _evaluate_risk(self, intent: ExecutionIntent) -> RiskDecision:
         position = self._portfolio.positions.get(intent.asset)
         exposure = Decimal("0") if position is None else position.quantity * intent.price_usd
-        return self._risk.evaluate(intent, self._pnl.realized_usd, exposure)
+        daily_pnl = self._pnl.daily_pnl(datetime.now(UTC))
+        return self._risk.evaluate(intent, daily_pnl, exposure)
 
     def _apply_approved_fill(self, intent: ExecutionIntent) -> None:
         self._pnl.record_fill(self._portfolio, intent)
@@ -64,7 +66,8 @@ class SimulationEnvironment:
 
         position = self._portfolio.positions.get(intent.asset)
         exposure = Decimal("0") if position is None else position.quantity * intent.price_usd
-        result = preflight.evaluate(quote, intent, self._pnl.realized_usd, exposure)
+        daily_pnl = self._pnl.daily_pnl(datetime.now(UTC))
+        result = preflight.evaluate(quote, intent, daily_pnl, exposure)
         self._events.publish(
             Event(
                 "execution.preflight",

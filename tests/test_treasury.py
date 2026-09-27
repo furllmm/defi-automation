@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from defi_manager.domain.models import PortfolioState
-from defi_manager.domain.treasury import Treasury
+from defi_manager.domain.treasury import CapitalAllocation, Treasury
 
 
 def test_treasury_snapshot_uses_portfolio_equity():
@@ -65,3 +65,30 @@ def test_treasury_rejects_actual_exposure_above_equity():
         pass
     else:
         raise AssertionError("actual treasury exposure above equity should be rejected")
+
+
+def test_treasury_accepts_typed_capital_allocations():
+    portfolio = PortfolioState(cash_usd=Decimal("1000"))
+    treasury = Treasury.default()
+    snapshot = treasury.snapshot(
+        portfolio,
+        {},
+        [CapitalAllocation("trading", Decimal("120")), CapitalAllocation("trading", Decimal("30"))],
+    )
+    assert snapshot.actual_allocation("trading") == Decimal("150")
+
+
+def test_capital_allocation_rejects_invalid_values():
+    try:
+        CapitalAllocation("", Decimal("1"))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("empty module should be rejected")
+
+    try:
+        CapitalAllocation("trading", Decimal("-1"))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("negative allocation should be rejected")

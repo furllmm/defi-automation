@@ -112,3 +112,31 @@ def test_negative_capital_allocation_is_rejected():
         pass
     else:
         raise AssertionError("negative capital allocation should be rejected")
+
+
+def test_treasury_applies_allocation_change():
+    from defi_manager.domain.treasury import AllocationChange
+    treasury = Treasury.default()
+    actual = treasury.apply_change({"trading": Decimal("100")}, AllocationChange("trading", Decimal("25")))
+    assert actual["trading"] == Decimal("125")
+
+
+def test_treasury_deallocation_cannot_go_below_zero():
+    from defi_manager.domain.treasury import AllocationChange
+    treasury = Treasury.default()
+    try:
+        treasury.apply_change({"trading": Decimal("10")}, AllocationChange("trading", Decimal("-11")))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("allocation cannot become negative")
+
+
+def test_zero_allocation_change_is_rejected():
+    from defi_manager.domain.treasury import AllocationChange
+    try:
+        AllocationChange("trading", Decimal("0"))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("zero allocation change should be rejected")

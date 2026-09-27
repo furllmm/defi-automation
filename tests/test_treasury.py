@@ -170,3 +170,33 @@ def test_treasury_transfer_rejects_insufficient_cash():
         pass
     else:
         raise AssertionError("insufficient cash should be rejected")
+
+
+def test_treasury_rebalance_moves_capital_between_modules():
+    from defi_manager.domain.treasury import AllocationChange
+    portfolio = PortfolioState(cash_usd=Decimal("100"))
+    treasury = Treasury.default()
+    actual = treasury.rebalance(
+        portfolio,
+        {"trading": Decimal("40"), "lending": Decimal("20")},
+        (AllocationChange("trading", Decimal("-10")), AllocationChange("lending", Decimal("10"))),
+    )
+    assert portfolio.cash_usd == Decimal("100")
+    assert actual == {"trading": Decimal("30"), "lending": Decimal("30")}
+
+
+def test_treasury_rebalance_rolls_back_cash_on_failure():
+    from defi_manager.domain.treasury import AllocationChange
+    portfolio = PortfolioState(cash_usd=Decimal("100"))
+    treasury = Treasury.default()
+    try:
+        treasury.rebalance(
+            portfolio,
+            {"trading": Decimal("20")},
+            (AllocationChange("trading", Decimal("10")), AllocationChange("lending", Decimal("-1"))),
+        )
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("invalid rebalance should fail")
+    assert portfolio.cash_usd == Decimal("100")

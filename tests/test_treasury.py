@@ -140,3 +140,33 @@ def test_zero_allocation_change_is_rejected():
         pass
     else:
         raise AssertionError("zero allocation change should be rejected")
+
+
+def test_treasury_transfer_allocates_cash():
+    from defi_manager.domain.treasury import AllocationChange
+    portfolio = PortfolioState(cash_usd=Decimal("100"))
+    treasury = Treasury.default()
+    actual = treasury.transfer(portfolio, {}, AllocationChange("trading", Decimal("40")))
+    assert portfolio.cash_usd == Decimal("60")
+    assert actual["trading"] == Decimal("40")
+
+
+def test_treasury_transfer_deallocates_back_to_cash():
+    from defi_manager.domain.treasury import AllocationChange
+    portfolio = PortfolioState(cash_usd=Decimal("60"))
+    treasury = Treasury.default()
+    actual = treasury.transfer(portfolio, {"trading": Decimal("40")}, AllocationChange("trading", Decimal("-25")))
+    assert portfolio.cash_usd == Decimal("85")
+    assert actual["trading"] == Decimal("15")
+
+
+def test_treasury_transfer_rejects_insufficient_cash():
+    from defi_manager.domain.treasury import AllocationChange
+    portfolio = PortfolioState(cash_usd=Decimal("10"))
+    treasury = Treasury.default()
+    try:
+        treasury.transfer(portfolio, {}, AllocationChange("trading", Decimal("11")))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("insufficient cash should be rejected")

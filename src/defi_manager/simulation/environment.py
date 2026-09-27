@@ -1,3 +1,4 @@
+from decimal import Decimal
 from defi_manager.core.events import Event, EventBus
 from defi_manager.core.safety import AutomationSafetyController
 from defi_manager.domain.models import ExecutionIntent, PnLTracker, PortfolioState
@@ -23,12 +24,17 @@ class SimulationEnvironment:
         if not safety.allowed:
             self._events.publish(Event("safety.execution_rejected", {"reason": safety.reason, "asset": intent.asset}))
             return RiskDecision(False, safety.reason)
-        decision = self._risk.evaluate(intent, self._pnl.realized_usd)
+        decision = self._evaluate_risk(intent)
         self._events.publish(Event("risk.decision", {"allowed": decision.allowed, "reason": decision.reason, "asset": intent.asset}))
         if not decision.allowed:
             return decision
         self._apply_approved_fill(intent)
         return decision
+
+    def _evaluate_risk(self, intent: ExecutionIntent) -> RiskDecision:
+        position = self._portfolio.positions.get(intent.asset)
+        exposure = Decimal("0") if position is None else position.quantity * intent.price_usd
+        return self._risk.evaluate(intent, self._pnl.realized_usd, exposure)
 
     def _apply_approved_fill(self, intent: ExecutionIntent) -> None:
         self._pnl.record_fill(self._portfolio, intent)

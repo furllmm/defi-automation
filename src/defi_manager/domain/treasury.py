@@ -1,5 +1,13 @@
 from dataclasses import dataclass
 from decimal import Decimal
+from .models import PortfolioState
+
+@dataclass(frozen=True)
+class TreasurySnapshot:
+    total_equity_usd: Decimal
+    cash_usd: Decimal
+    invested_usd: Decimal
+    target_amounts_usd: dict[str, Decimal]
 
 @dataclass(frozen=True)
 class Treasury:
@@ -13,6 +21,16 @@ class Treasury:
         if module not in self.allocations:
             raise KeyError(f"Unknown treasury module: {module}")
         return self.allocations[module]
+
+    def snapshot(self, portfolio: PortfolioState, prices: dict[str, Decimal]) -> TreasurySnapshot:
+        total_equity = portfolio.market_value_usd(prices)
+        invested = total_equity - portfolio.cash_usd
+        return TreasurySnapshot(
+            total_equity_usd=total_equity,
+            cash_usd=portfolio.cash_usd,
+            invested_usd=invested,
+            target_amounts_usd={module: total_equity * allocation for module, allocation in self.allocations.items()},
+        )
 
     def validate(self) -> None:
         if sum(self.allocations.values()) != Decimal("1.00"):

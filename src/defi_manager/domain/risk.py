@@ -10,6 +10,7 @@ class RiskPolicy:
     max_price_impact_bps: int = 500
     max_gas_usd: Decimal = Decimal("100")
     max_asset_exposure_usd: Decimal = Decimal("5000")
+    max_module_exposure_usd: Decimal = Decimal("10000")
 
 @dataclass(frozen=True)
 class RiskDecision:
@@ -20,7 +21,7 @@ class RiskManager:
     def __init__(self, policy: RiskPolicy) -> None:
         self._policy = policy
 
-    @property
+    def evaluate_module_exposure(self, current_exposure_usd: Decimal, requested_increase_usd: Decimal) -> RiskDecision:\n        if current_exposure_usd < 0 or requested_increase_usd < 0:\n            return RiskDecision(False, "module exposure values cannot be negative")\n        if current_exposure_usd + requested_increase_usd > self._policy.max_module_exposure_usd:\n            return RiskDecision(False, "module exposure exceeds limit")\n        return RiskDecision(True, "approved")\n\n    @property
     def policy(self) -> RiskPolicy:
         return self._policy
 

@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 import unittest
 
@@ -23,6 +24,15 @@ class ExecutionTests(unittest.TestCase):
             events,
             AutomationSafetyController(events),
         )
+
+    def test_risk_uses_daily_pnl_not_all_time_realized_pnl(self) -> None:
+        simulation = self._simulation()
+        now = datetime.now(UTC)
+        simulation.pnl.record_loss("trading", Decimal("150"), occurred_at=now - timedelta(days=1))
+        result = PaperExecutor(simulation).execute(
+            ExecutionIntent("ETH", "buy", Decimal("0.1"), Decimal("2000"), 10)
+        )
+        self.assertTrue(result.allowed)
 
     def test_paper_executor_delegates_to_simulation(self) -> None:
         simulation = self._simulation()

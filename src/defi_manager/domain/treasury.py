@@ -3,12 +3,27 @@ from decimal import Decimal
 from .models import PortfolioState
 
 @dataclass(frozen=True)
+class CapitalAllocation:
+    module: str
+    amount_usd: Decimal
+
+    def __post_init__(self) -> None:
+        if not self.module:
+            raise ValueError("Capital allocation module is required")
+        if self.amount_usd < 0:
+            raise ValueError("Capital allocation cannot be negative")
+
+
+@dataclass(frozen=True)
 class TreasurySnapshot:
     total_equity_usd: Decimal
     cash_usd: Decimal
     invested_usd: Decimal
     target_amounts_usd: dict[str, Decimal]
     actual_amounts_usd: dict[str, Decimal]
+
+    def actual_allocation(self, module: str) -> Decimal:
+        return self.actual_amounts_usd.get(module, Decimal("0"))
 
 @dataclass(frozen=True)
 class Treasury:
@@ -23,10 +38,15 @@ class Treasury:
             raise KeyError(f"Unknown treasury module: {module}")
         return self.allocations[module]
 
-    def snapshot(self, portfolio: PortfolioState, prices: dict[str, Decimal], actual_amounts_usd: dict[str, Decimal] | None = None) -> TreasurySnapshot:
+    def snapshot(self, portfolio: PortfolioState, prices: dict[str, Decimal], actual_amounts_usd: dict[str, Decimal] | list[CapitalAllocation] | None = None) -> TreasurySnapshot:
         total_equity = portfolio.market_value_usd(prices)
         invested = total_equity - portfolio.cash_usd
-        actual = dict(actual_amounts_usd or {})
+        if isinstance(actual_amounts_usd, list):
+            actual: dict[str, Decimal] = {}
+            for allocation in actual_amounts_usd:
+                actual[allocation.module] = actual.get(allocation.module, Decimal("0")) + allocation.amount_usd
+        else:
+            actual = dict(actual_amounts_usd or {})
         if any(value < 0 for value in actual.values()):
             raise ValueError("Treasury actual allocations cannot be negative")
         if sum(actual.values()) > total_equity:

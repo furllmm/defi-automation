@@ -7,6 +7,8 @@ class RiskPolicy:
     max_trade_notional_usd: Decimal
     max_daily_loss_usd: Decimal
     max_slippage_bps: int
+    max_price_impact_bps: int = 500
+    max_gas_usd: Decimal = Decimal("100")
 
 @dataclass(frozen=True)
 class RiskDecision:

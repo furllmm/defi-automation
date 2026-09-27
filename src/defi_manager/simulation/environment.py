@@ -8,6 +8,14 @@ class SimulationEnvironment:
         self._portfolio, self._pnl, self._risk, self._events = portfolio, pnl, risk, events
         self._safety = safety
 
+    @property
+    def portfolio(self) -> PortfolioState:
+        return self._portfolio
+
+    @property
+    def pnl(self) -> PnLTracker:
+        return self._pnl
+
     def execute(self, intent: ExecutionIntent) -> RiskDecision:
         safety = self._safety.execution_decision()
         if not safety.allowed:

@@ -4,7 +4,7 @@ import unittest
 
 from defi_manager.adapters.dex import FixedPriceDexAdapter
 from defi_manager.trading.backtest import BacktestConfig, BacktestRunner, ExitPolicy
-from defi_manager.trading.market import Candle
+from defi_manager.trading.market import Candle, InMemoryMarketDataProvider
 from defi_manager.trading.strategy import MovingAverageCrossStrategy, RsiStrategy, Signal
 
 
@@ -43,6 +43,29 @@ class TradingTests(unittest.TestCase):
         signal = RsiStrategy(period=3).evaluate(candles)
         self.assertEqual(signal.action, "sell")
 
+
+    def test_backtest_can_load_candles_from_market_data_provider(self) -> None:
+        start = datetime(2025, 1, 1, tzinfo=UTC)
+        candles = [Candle(start + timedelta(days=index), Decimal(price)) for index, price in enumerate([10, 9, 8, 9, 11])]
+        provider = InMemoryMarketDataProvider({"ETH": candles})
+        result = BacktestRunner().run_from_provider(
+            "ETH",
+            provider,
+            start,
+            start + timedelta(days=5),
+            MovingAverageCrossStrategy(2, 3),
+            BacktestConfig(Decimal("100")),
+        )
+        self.assertEqual(len(result.equity_curve), 5)
+
+    def test_backtest_rejects_unsorted_candles(self) -> None:
+        start = datetime(2025, 1, 1, tzinfo=UTC)
+        candles = [
+            Candle(start + timedelta(days=1), Decimal("10")),
+            Candle(start, Decimal("9")),
+        ]
+        with self.assertRaises(ValueError):
+            BacktestRunner().run("ETH", candles, MovingAverageCrossStrategy(2, 3), BacktestConfig(Decimal("100")))
 
 class BuyThenHold:
     name = "buy-then-hold"

@@ -92,3 +92,23 @@ def test_capital_allocation_rejects_invalid_values():
         pass
     else:
         raise AssertionError("negative allocation should be rejected")
+
+
+def test_treasury_snapshot_exposes_typed_allocations():
+    portfolio = PortfolioState(cash_usd=Decimal("500"))
+    treasury = Treasury.default()
+
+    snapshot = treasury.snapshot(portfolio, {}, {"trading": Decimal("125")})
+
+    assert snapshot.allocations[0].module == "trading"
+    assert snapshot.allocations[0].amount_usd == Decimal("125")
+
+
+def test_negative_capital_allocation_is_rejected():
+    from defi_manager.domain.treasury import CapitalAllocation
+    try:
+        CapitalAllocation("trading", Decimal("-1"))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("negative capital allocation should be rejected")

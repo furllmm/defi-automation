@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from decimal import Decimal
 
 from defi_manager.domain.models import ExecutionIntent, PnLTracker, PortfolioState, Position
-from defi_manager.trading.market import Candle
+from defi_manager.trading.market import Candle, MarketDataProvider
 from defi_manager.trading.strategy import Signal, Strategy
 
 
@@ -68,8 +69,25 @@ class BacktestRunner:
     """Long-only deterministic paper backtest; it cannot send any transaction."""
 
     def run(self, asset: str, candles: list[Candle], strategy: Strategy, config: BacktestConfig) -> BacktestResult:
+        return self._run_candles(asset, candles, strategy, config)
+
+    def run_from_provider(
+        self,
+        asset: str,
+        provider: MarketDataProvider,
+        start: datetime,
+        end: datetime,
+        strategy: Strategy,
+        config: BacktestConfig,
+    ) -> BacktestResult:
+        candles = provider.candles(asset, start, end)
+        return self._run_candles(asset, candles, strategy, config)
+
+    def _run_candles(self, asset: str, candles: list[Candle], strategy: Strategy, config: BacktestConfig) -> BacktestResult:
         if len(candles) < 2:
             raise ValueError("at least two candles are required")
+        if any(current.timestamp >= following.timestamp for current, following in zip(candles, candles[1:])):
+            raise ValueError("candles must be strictly ordered by timestamp")
         portfolio = PortfolioState(cash_usd=config.initial_cash_usd)
         pnl = PnLTracker()
         equity_curve: list[Decimal] = []

@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    environment:
+      DEFI_MANAGER_MODE: simulation
+      DEFI_MANAGER_DATABASE_PATH: /data/defi-manager.sqlite3
+    volumes:
+      - defi-manager-data:/data
+volumes:
+  defi-manager-data:
+

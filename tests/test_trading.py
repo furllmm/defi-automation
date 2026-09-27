@@ -15,6 +15,20 @@ class TradingTests(unittest.TestCase):
         self.assertEqual(quote.expected_amount_out, Decimal("0.1"))
         self.assertEqual(quote.minimum_amount_out, Decimal("0.099"))
 
+    def test_fixed_price_quote_rejects_invalid_price_and_slippage(self) -> None:
+        adapter = FixedPriceDexAdapter({"USDC": Decimal("1"), "ETH": Decimal("2000")})
+        with self.assertRaises(ValueError):
+            adapter.quote_exact_input("USDC", "ETH", Decimal("100"), 10001)
+        with self.assertRaises(ValueError):
+            FixedPriceDexAdapter({"USDC": Decimal("0"), "ETH": Decimal("2000")}).quote_exact_input(
+                "USDC", "ETH", Decimal("100"), 100
+            )
+
+    def test_swap_quote_rejects_minimum_above_expected(self) -> None:
+        from defi_manager.adapters.dex import SwapQuote
+        with self.assertRaises(ValueError):
+            SwapQuote("test", "USDC", "ETH", Decimal("100"), Decimal("1"), Decimal("2"), 0, Decimal("1"))
+
     def test_backtest_executes_a_cross_and_tracks_fees(self) -> None:
         start = datetime(2025, 1, 1, tzinfo=UTC)
         closes = [10, 9, 8, 9, 11, 12, 11, 9]

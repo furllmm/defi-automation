@@ -34,13 +34,7 @@ class SimulationEnvironment:
     def _evaluate_risk(self, intent: ExecutionIntent) -> RiskDecision:
         position = self._portfolio.positions.get(intent.asset)
         exposure = Decimal("0") if position is None else position.quantity * intent.price_usd
-        return self._risk.evaluate(intent, self._pnl.realized_usd, exposure, self._module_allocation(intent))
-
-    def _module_allocation(self, intent: ExecutionIntent) -> Decimal:
-        if intent.asset in self._portfolio.positions:
-            position = self._portfolio.positions[intent.asset]
-            return position.quantity * intent.price_usd
-        return Decimal("0")
+        return self._risk.evaluate(intent, self._pnl.realized_usd, exposure)
 
     def _apply_approved_fill(self, intent: ExecutionIntent) -> None:
         self._pnl.record_fill(self._portfolio, intent)
@@ -70,7 +64,7 @@ class SimulationEnvironment:
 
         position = self._portfolio.positions.get(intent.asset)
         exposure = Decimal("0") if position is None else position.quantity * intent.price_usd
-        result = preflight.evaluate(quote, intent, self._pnl.realized_usd, exposure, self._module_allocation(intent))
+        result = preflight.evaluate(quote, intent, self._pnl.realized_usd, exposure)
         self._events.publish(
             Event(
                 "execution.preflight",

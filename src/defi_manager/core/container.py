@@ -8,6 +8,9 @@ from defi_manager.core.scheduler import Scheduler
 from defi_manager.data.sqlite import AuditRepository, Database
 from defi_manager.domain.models import PnLTracker, PortfolioState
 from defi_manager.domain.risk import RiskManager, RiskPolicy
+from defi_manager.domain.quote_risk import QuoteRiskEvaluator
+from defi_manager.domain.preflight import ExecutionPreflight
+from defi_manager.execution import PaperExecutor
 from defi_manager.domain.treasury import Treasury
 from defi_manager.lending.analyzer import LendingAnalyzer
 from defi_manager.lending.models import LendingPolicy
@@ -34,6 +37,8 @@ class Container:
     staking: StakingAnalyzer
     liquidity: LiquidityAnalyzer
     simulation: SimulationEnvironment
+    preflight: ExecutionPreflight
+    paper_executor: PaperExecutor
 
     @classmethod
     def build(cls, settings: Settings) -> "Container":
@@ -53,4 +58,6 @@ class Container:
         staking = StakingAnalyzer(StakingPolicy(Decimal("1"), True, Decimal("1")), events)
         liquidity = LiquidityAnalyzer(LiquidityPolicy(Decimal("10000"), Decimal("5000"), Decimal("0.50"), Decimal("1")), events)
         simulation = SimulationEnvironment(portfolio, pnl, risk, events, safety)
-        return cls(settings, database, events, audit, portfolio, pnl, treasury, risk, safety, scheduler, notifications, lending, staking, liquidity, simulation)
+        preflight = ExecutionPreflight(QuoteRiskEvaluator(risk.policy), risk)
+        paper_executor = PaperExecutor(simulation, preflight)
+        return cls(settings, database, events, audit, portfolio, pnl, treasury, risk, safety, scheduler, notifications, lending, staking, liquidity, simulation, preflight, paper_executor)

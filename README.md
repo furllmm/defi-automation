@@ -36,11 +36,13 @@ docker compose run --rm app
 
 ## Phase 2 paper trading
 
-Phase 2 provides a read-only DEX quote contract, a deterministic fixed-price
-adapter for local use, a strategy registry, MA-crossover strategy, and a
-RSI strategy, plus a long-only backtest runner with optional stop-loss,
+Phase 2 provides a read-only DEX quote contract, deterministic fixed-price
+and market-data adapters for local use, a strategy registry, MA-crossover
+strategy, and a RSI strategy, plus a long-only backtest runner with optional stop-loss,
 take-profit, cooldown, fee/slippage, drawdown, win-rate, and profit-factor
-metrics. They are deliberately paper-only: no adapter has a
+metrics. Paper execution is routed through the same safety and risk gate as
+simulation, while market-data providers remain strictly read-only. They are
+deliberately paper-only: no adapter has a
 transaction-submission method and the backtest owns isolated in-memory state.
 
 Lending, staking, liquidity mining, AI, wallets, and live execution remain

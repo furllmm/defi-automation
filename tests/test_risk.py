@@ -14,3 +14,15 @@ class RiskManagerTests(unittest.TestCase):
         manager = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
         decision = manager.evaluate(ExecutionIntent("ETH", "buy", Decimal("1"), Decimal("10"), 1), Decimal("-25"))
         self.assertFalse(decision.allowed)
+
+    def test_module_exposure_limit(self) -> None:
+        manager = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50, max_module_exposure_usd=Decimal("200")))
+        self.assertTrue(manager.evaluate_module_exposure(Decimal("150"), Decimal("50")).allowed)
+        decision = manager.evaluate_module_exposure(Decimal("150"), Decimal("51"))
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.reason, "module exposure exceeds limit")
+
+    def test_module_exposure_rejects_negative_values(self) -> None:
+        manager = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
+        decision = manager.evaluate_module_exposure(Decimal("-1"), Decimal("0"))
+        self.assertFalse(decision.allowed)

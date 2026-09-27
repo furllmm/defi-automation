@@ -1,0 +1,32 @@
+from dataclasses import dataclass
+from decimal import Decimal
+from defi_manager.domain.models import ExecutionIntent
+
+@dataclass(frozen=True)
+class RiskPolicy:
+    max_trade_notional_usd: Decimal
+    max_daily_loss_usd: Decimal
+    max_slippage_bps: int
+
+@dataclass(frozen=True)
+class RiskDecision:
+    allowed: bool
+    reason: str
+
+class RiskManager:
+    def __init__(self, policy: RiskPolicy) -> None:
+        self._policy = policy
+
+    def evaluate(self, intent: ExecutionIntent, realized_daily_pnl_usd: Decimal) -> RiskDecision:
+        if intent.side not in {"buy", "sell"}:
+            return RiskDecision(False, "unsupported side")
+        if intent.quantity <= 0 or intent.price_usd <= 0:
+            return RiskDecision(False, "quantity and price must be positive")
+        if intent.notional_usd > self._policy.max_trade_notional_usd:
+            return RiskDecision(False, "trade notional exceeds limit")
+        if intent.slippage_bps > self._policy.max_slippage_bps:
+            return RiskDecision(False, "slippage exceeds limit")
+        if realized_daily_pnl_usd <= -self._policy.max_daily_loss_usd:
+            return RiskDecision(False, "daily loss limit reached")
+        return RiskDecision(True, "approved")
+

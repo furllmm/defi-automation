@@ -2,7 +2,9 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 import unittest
 
-from defi_manager.adapters.dex import FixedPriceDexAdapter
+from defi_manager.adapters.dex import FixedPriceDexAdapter, SwapQuote
+from defi_manager.domain.quote_risk import QuoteRiskEvaluator
+from defi_manager.domain.risk import RiskPolicy
 from defi_manager.trading.backtest import BacktestConfig, BacktestRunner, ExitPolicy
 from defi_manager.trading.market import Candle, InMemoryMarketDataProvider
 from defi_manager.trading.strategy import MovingAverageCrossStrategy, RsiStrategy, Signal
@@ -28,6 +30,19 @@ class TradingTests(unittest.TestCase):
         from defi_manager.adapters.dex import SwapQuote
         with self.assertRaises(ValueError):
             SwapQuote("test", "USDC", "ETH", Decimal("100"), Decimal("1"), Decimal("2"), 0, Decimal("1"))
+
+    def test_quote_risk_rejects_excessive_impact_and_gas(self) -> None:
+        policy = RiskPolicy(Decimal("1000"), Decimal("100"), 100, max_price_impact_bps=50, max_gas_usd=Decimal("5"))
+        evaluator = QuoteRiskEvaluator(policy)
+        quote = SwapQuote("test", "ETH", "USDC", Decimal("1"), Decimal("2000"), Decimal("1980"), 100, Decimal("1"))
+        self.assertFalse(evaluator.evaluate(quote).allowed)
+        expensive = SwapQuote("test", "ETH", "USDC", Decimal("1"), Decimal("2000"), Decimal("1980"), 10, Decimal("6"))
+        self.assertFalse(evaluator.evaluate(expensive).allowed)
+
+    def test_quote_risk_accepts_reasonable_quote(self) -> None:
+        policy = RiskPolicy(Decimal("1000"), Decimal("100"), 100, max_price_impact_bps=50, max_gas_usd=Decimal("5"))
+        quote = SwapQuote("test", "ETH", "USDC", Decimal("1"), Decimal("2000"), Decimal("1980"), 20, Decimal("2"))
+        self.assertTrue(QuoteRiskEvaluator(policy).evaluate(quote).allowed)
 
     def test_backtest_executes_a_cross_and_tracks_fees(self) -> None:
         start = datetime(2025, 1, 1, tzinfo=UTC)

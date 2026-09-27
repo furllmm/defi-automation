@@ -27,10 +27,23 @@ class SimulationEnvironment:
         self._events.publish(Event("risk.decision", {"allowed": decision.allowed, "reason": decision.reason, "asset": intent.asset}))
         if not decision.allowed:
             return decision
+        self._apply_approved_fill(intent)
+        return decision
+
+    def _apply_approved_fill(self, intent: ExecutionIntent) -> None:
         self._pnl.record_fill(self._portfolio, intent)
         self._portfolio.apply_fill(intent)
-        self._events.publish(Event("simulation.fill", {"asset": intent.asset, "side": intent.side, "quantity": str(intent.quantity), "price_usd": str(intent.price_usd)}))
-        return decision
+        self._events.publish(
+            Event(
+                "simulation.fill",
+                {
+                    "asset": intent.asset,
+                    "side": intent.side,
+                    "quantity": str(intent.quantity),
+                    "price_usd": str(intent.price_usd),
+                },
+            )
+        )
 
     def execute_with_preflight(
         self,
@@ -53,7 +66,5 @@ class SimulationEnvironment:
         if not result.allowed:
             return result.execution_decision
 
-        self._pnl.record_fill(self._portfolio, intent)
-        self._portfolio.apply_fill(intent)
-        self._events.publish(Event("simulation.fill", {"asset": intent.asset, "side": intent.side, "quantity": str(intent.quantity), "price_usd": str(intent.price_usd)}))
+        self._apply_approved_fill(intent)
         return result.execution_decision

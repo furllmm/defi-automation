@@ -3,8 +3,10 @@ from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
+import io
 
-from defi_manager.trading.market import Candle, CsvMarketDataProvider, InMemoryMarketDataProvider
+from defi_manager.trading.market import BinanceMarketDataProvider, Candle, CsvMarketDataProvider, InMemoryMarketDataProvider
 
 
 class MarketDataTests(unittest.TestCase):
@@ -33,6 +35,25 @@ class MarketDataTests(unittest.TestCase):
             )
             self.assertEqual(result[0].high_usd, Decimal("2010"))
             self.assertEqual(result[0].volume, Decimal("123.4"))
+
+    def test_binance_provider_parses_public_kline(self) -> None:
+        payload = b'[[1767225600000,"2000","2010","1990","2005","12.5"]]'
+        class Response(io.BytesIO):
+            def __enter__(self): return self
+            def __exit__(self, *args): return None
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        with patch("defi_manager.trading.market.urlopen", return_value=Response(payload)):
+            result = BinanceMarketDataProvider({"ETH": "ETHUSDT"}).candles(
+                "ETH", start, start + timedelta(hours=1)
+            )
+        self.assertEqual(result[0].close_usd, Decimal("2005"))
+        self.assertEqual(result[0].volume, Decimal("12.5"))
+
+    def test_binance_provider_requires_timezone_aware_range(self) -> None:
+        provider = BinanceMarketDataProvider({"ETH": "ETHUSDT"})
+        start = datetime(2026, 1, 1)
+        with self.assertRaises(ValueError):
+            provider.candles("ETH", start, start + timedelta(hours=1))
 
     def test_csv_provider_rejects_missing_columns(self) -> None:
         with TemporaryDirectory() as directory:

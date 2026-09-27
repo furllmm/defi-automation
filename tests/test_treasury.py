@@ -15,6 +15,7 @@ def test_treasury_snapshot_uses_portfolio_equity():
     assert snapshot.invested_usd == Decimal("0")
     assert snapshot.target_amounts_usd["trading"] == Decimal("20")
     assert snapshot.target_amounts_usd["reserve"] == Decimal("15")
+    assert snapshot.actual_amounts_usd == {}
 
 
 def test_treasury_snapshot_includes_position_value():
@@ -38,3 +39,29 @@ def test_unknown_treasury_module_is_rejected():
         pass
     else:
         raise AssertionError("unknown treasury module should raise KeyError")
+
+
+def test_treasury_snapshot_tracks_actual_module_exposure():
+    portfolio = PortfolioState(cash_usd=Decimal("1000"))
+    treasury = Treasury.default()
+
+    snapshot = treasury.snapshot(
+        portfolio,
+        {},
+        {"trading": Decimal("120"), "lending": Decimal("80")},
+    )
+
+    assert snapshot.actual_amounts_usd["trading"] == Decimal("120")
+    assert snapshot.actual_amounts_usd["lending"] == Decimal("80")
+
+
+def test_treasury_rejects_actual_exposure_above_equity():
+    portfolio = PortfolioState(cash_usd=Decimal("100"))
+    treasury = Treasury.default()
+
+    try:
+        treasury.snapshot(portfolio, {}, {"trading": Decimal("101")})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("actual treasury exposure above equity should be rejected")

@@ -62,7 +62,9 @@ class SimulationEnvironment:
             self._events.publish(Event("safety.execution_rejected", {"reason": safety.reason, "asset": intent.asset}))
             return RiskDecision(False, safety.reason)
 
-        result = preflight.evaluate(quote, intent, self._pnl.realized_usd)
+        position = self._portfolio.positions.get(intent.asset)
+        exposure = Decimal("0") if position is None else position.quantity * intent.price_usd
+        result = preflight.evaluate(quote, intent, self._pnl.realized_usd, exposure)
         self._events.publish(
             Event(
                 "execution.preflight",

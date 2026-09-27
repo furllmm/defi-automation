@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -40,10 +41,7 @@ class PaperTradingTests(unittest.TestCase):
         )
 
     def test_strategy_signal_passes_through_risk_gate(self) -> None:
-        candle = Candle.fromisoformat if False else None
         # Keep the test independent of market-data providers.
-        from datetime import UTC, datetime
-        from defi_manager.trading.market import Candle
         result = self._engine(fee_bps=10).step(
             "ETH",
             [Candle(datetime(2026, 1, 1, tzinfo=UTC), Decimal("2000"))],
@@ -59,8 +57,6 @@ class PaperTradingTests(unittest.TestCase):
                      max_trade_notional_usd=Decimal("10"))
         )
         self.app.portfolio.cash_usd = Decimal("100")
-        from datetime import UTC, datetime
-        from defi_manager.trading.market import Candle
         result = self._engine().step(
             "ETH",
             [Candle(datetime(2026, 1, 1, tzinfo=UTC), Decimal("2000"))],

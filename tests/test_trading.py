@@ -3,6 +3,7 @@ from decimal import Decimal
 import unittest
 
 from defi_manager.adapters.dex import FixedPriceDexAdapter, SwapQuote
+from defi_manager.adapters.swap import SwapIntentBuilder
 from defi_manager.domain.quote_risk import QuoteRiskEvaluator
 from defi_manager.domain.risk import RiskPolicy
 from defi_manager.trading.backtest import BacktestConfig, BacktestRunner, ExitPolicy
@@ -30,6 +31,24 @@ class TradingTests(unittest.TestCase):
         from defi_manager.adapters.dex import SwapQuote
         with self.assertRaises(ValueError):
             SwapQuote("test", "USDC", "ETH", Decimal("100"), Decimal("1"), Decimal("2"), 0, Decimal("1"))
+
+    def test_swap_intent_builder_maps_quote_to_intent(self) -> None:
+        quote = SwapQuote(
+            "test",
+            "ETH",
+            "USDC",
+            Decimal("2"),
+            Decimal("4000"),
+            Decimal("3960"),
+            10,
+            Decimal("3"),
+        )
+        intent = SwapIntentBuilder().build(quote)
+        self.assertEqual(intent.asset, "ETH")
+        self.assertEqual(intent.quantity, Decimal("2"))
+        self.assertEqual(intent.price_usd, Decimal("0.0005"))
+        self.assertEqual(intent.slippage_bps, 100)
+        self.assertEqual(intent.estimated_fee_usd, Decimal("3"))
 
     def test_quote_risk_rejects_excessive_impact_and_gas(self) -> None:
         policy = RiskPolicy(Decimal("1000"), Decimal("100"), 100, max_price_impact_bps=50, max_gas_usd=Decimal("5"))

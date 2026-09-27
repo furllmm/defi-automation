@@ -5,7 +5,7 @@ import json
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Protocol

@@ -26,6 +26,17 @@ class CapitalAllocation:
             raise ValueError("allocation amount cannot be negative")
 
 @dataclass(frozen=True)
+class AllocationChange:
+    module: str
+    amount_usd: Decimal
+
+    def __post_init__(self) -> None:
+        if not self.module:
+            raise ValueError("module is required")
+        if self.amount_usd == 0:
+            raise ValueError("allocation change cannot be zero")
+
+@dataclass(frozen=True)
 class TreasurySnapshot:
     total_equity_usd: Decimal
     cash_usd: Decimal

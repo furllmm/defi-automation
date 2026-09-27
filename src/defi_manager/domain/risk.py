@@ -19,6 +19,10 @@ class RiskManager:
     def __init__(self, policy: RiskPolicy) -> None:
         self._policy = policy
 
+    @property
+    def policy(self) -> RiskPolicy:
+        return self._policy
+
     def evaluate(self, intent: ExecutionIntent, realized_daily_pnl_usd: Decimal) -> RiskDecision:
         if intent.side not in {"buy", "sell"}:
             return RiskDecision(False, "unsupported side")

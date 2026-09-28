@@ -5,6 +5,7 @@ from defi_manager.domain.treasury import CapitalAllocation, Treasury, Allocation
 from defi_manager.domain.risk import RiskManager, RiskPolicy
 from defi_manager.domain.treasury_service import TreasuryService
 from defi_manager.core.events import EventBus
+from defi_manager.core.safety import AutomationSafetyController
 
 
 def test_treasury_snapshot_uses_portfolio_equity():
@@ -150,7 +151,7 @@ def test_treasury_rebalance_allocates_cash_only_after_risk_gate():
     treasury = Treasury.default()
     risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
 
-    actual = TreasuryService(treasury, risk, EventBus()).rebalance(
+    actual = TreasuryService(treasury, risk, EventBus(), AutomationSafetyController(EventBus())).rebalance(
         portfolio,
         {},
         (AllocationChange("trading", Decimal("40")),),
@@ -200,7 +201,7 @@ def test_treasury_rebalance_moves_capital_between_modules():
     portfolio = PortfolioState(cash_usd=Decimal("100"))
     treasury = Treasury.default()
     risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
-    service = TreasuryService(treasury, risk, EventBus())
+    service = TreasuryService(treasury, risk, EventBus(), AutomationSafetyController(EventBus()))
     actual = service.rebalance(
         portfolio,
         {"trading": Decimal("40"), "lending": Decimal("20")},

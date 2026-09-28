@@ -43,8 +43,10 @@ class Settings:
             )
         except (ValueError, ArithmeticError) as exc:
             raise ConfigurationError("Configuration values must be numeric where required") from exc
-        if min(settings.max_trade_notional_usd, settings.max_daily_loss_usd, settings.max_module_exposure_usd, settings.max_gas_usd, settings.max_asset_exposure_usd, settings.max_leverage) < 0:
+        if min(settings.max_trade_notional_usd, settings.max_daily_loss_usd, settings.max_module_exposure_usd, settings.max_gas_usd, settings.max_asset_exposure_usd) < 0:
             raise ConfigurationError("Risk limits cannot be negative")
+        if settings.max_leverage <= 0:
+            raise ConfigurationError("MAX_LEVERAGE must be greater than 0")
         if not 0 <= settings.max_slippage_bps <= 10_000:
             raise ConfigurationError("MAX_SLIPPAGE_BPS must be between 0 and 10000")
         if not 0 <= settings.max_price_impact_bps <= 10_000:

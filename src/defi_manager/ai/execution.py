@@ -1,8 +1,9 @@
 from dataclasses import dataclass
+from decimal import Decimal
 
 from defi_manager.ai.engine import AIProposal, AIEngine
-from defi_manager.domain.risk import RiskDecision
 from defi_manager.domain.models import PortfolioState
+from defi_manager.domain.risk import RiskDecision
 from defi_manager.execution import Executor
 
 
@@ -28,8 +29,8 @@ class AIExecutionCoordinator:
         portfolio: PortfolioState,
         *,
         asset: str,
-        price_usd,
-        quantity=1,
+        price_usd: Decimal,
+        quantity: Decimal = Decimal("1"),
         slippage_bps: int = 0,
     ) -> list[AIExecutionResult]:
         proposals = self._ai.propose(

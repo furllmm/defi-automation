@@ -13,6 +13,7 @@ class RiskPolicy:
     max_gas_usd: Decimal = Decimal("100")
     max_asset_exposure_usd: Decimal = Decimal("5000")
     max_module_exposure_usd: Decimal = Decimal("10000")
+    max_leverage: Decimal = Decimal("1")
 
 
 @dataclass(frozen=True)
@@ -80,6 +81,10 @@ class RiskManager:
             return RiskDecision(False, "unsupported side")
         if intent.quantity <= 0 or intent.price_usd <= 0:
             return RiskDecision(False, "quantity and price must be positive")
+        if intent.leverage <= 0:
+            return RiskDecision(False, "leverage must be positive")
+        if intent.leverage > self._policy.max_leverage:
+            return RiskDecision(False, "leverage exceeds limit")
         if intent.notional_usd > self._policy.max_trade_notional_usd:
             return RiskDecision(False, "trade notional exceeds limit")
         if current_asset_exposure_usd < 0:

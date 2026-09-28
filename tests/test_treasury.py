@@ -167,7 +167,7 @@ def test_treasury_rebalance_deallocates_back_to_cash():
     treasury = Treasury.default()
     risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
 
-    actual = TreasuryService(treasury, risk, EventBus()).rebalance(
+    actual = TreasuryService(treasury, risk, EventBus(), AutomationSafetyController(EventBus())).rebalance(
         portfolio,
         {"trading": Decimal("40")},
         (AllocationChange("trading", Decimal("-25")),),
@@ -184,7 +184,7 @@ def test_treasury_rebalance_rejects_insufficient_cash():
     risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
 
     try:
-        TreasuryService(treasury, risk, EventBus()).rebalance(
+        TreasuryService(treasury, risk, EventBus(), AutomationSafetyController(EventBus())).rebalance(
             portfolio,
             {},
             (AllocationChange("trading", Decimal("11")),),
@@ -218,7 +218,7 @@ def test_treasury_rebalance_rolls_back_cash_on_failure():
     treasury = Treasury.default()
     try:
         risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
-        TreasuryService(treasury, risk, EventBus()).rebalance(
+        TreasuryService(treasury, risk, EventBus(), AutomationSafetyController(EventBus())).rebalance(
             portfolio,
             {"trading": Decimal("20")},
             (AllocationChange("trading", Decimal("10")), AllocationChange("lending", Decimal("-1"))),
@@ -239,7 +239,7 @@ def test_treasury_rebalance_is_rejected_by_risk_manager():
     )
 
     try:
-        TreasuryService(treasury, risk, EventBus()).rebalance(
+        TreasuryService(treasury, risk, EventBus(), AutomationSafetyController(EventBus())).rebalance(
             portfolio,
             {"trading": Decimal("90")},
             (AllocationChange("trading", Decimal("20")),),
@@ -261,7 +261,7 @@ def test_treasury_service_publishes_risk_and_applied_events():
     received = []
     events.subscribe("*", received.append)
 
-    TreasuryService(treasury, risk, events).rebalance(
+    TreasuryService(treasury, risk, events, AutomationSafetyController(events)).rebalance(
         portfolio,
         {},
         (AllocationChange("trading", Decimal("40")),),
@@ -269,6 +269,7 @@ def test_treasury_service_publishes_risk_and_applied_events():
     )
 
     assert [event.name for event in received] == [
+        "treasury.rebalance.safety",
         "treasury.rebalance.risk",
         "treasury.rebalance.applied",
     ]

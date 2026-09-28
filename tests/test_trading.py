@@ -2,9 +2,17 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 import unittest
 
-from defi_manager.adapters.dex import FixedPriceDexAdapter
+from defi_manager.adapters.dex import FixedPriceDexAdapter, SwapQuote
+from defi_manager.adapters.swap import SwapIntentBuilder
+from defi_manager.domain.quote_risk import QuoteRiskEvaluator
+from defi_manager.domain.risk import RiskPolicy
+from defi_manager.domain.models import PnLTracker, PortfolioState
+from defi_manager.core.events import EventBus
+from defi_manager.core.safety import AutomationSafetyController
+from defi_manager.simulation.environment import SimulationEnvironment
+from defi_manager.domain.preflight import ExecutionPreflight
 from defi_manager.trading.backtest import BacktestConfig, BacktestRunner, ExitPolicy
-from defi_manager.trading.market import Candle
+from defi_manager.trading.market import Candle, InMemoryMarketDataProvider
 from defi_manager.trading.strategy import MovingAverageCrossStrategy, RsiStrategy, Signal
 
 
@@ -14,6 +22,51 @@ class TradingTests(unittest.TestCase):
         quote = adapter.quote_exact_input("USDC", "ETH", Decimal("200"), 100)
         self.assertEqual(quote.expected_amount_out, Decimal("0.1"))
         self.assertEqual(quote.minimum_amount_out, Decimal("0.099"))
+
+    def test_fixed_price_quote_rejects_invalid_price_and_slippage(self) -> None:
+        adapter = FixedPriceDexAdapter({"USDC": Decimal("1"), "ETH": Decimal("2000")})
+        with self.assertRaises(ValueError):
+            adapter.quote_exact_input("USDC", "ETH", Decimal("100"), 10001)
+        with self.assertRaises(ValueError):
+            FixedPriceDexAdapter({"USDC": Decimal("0"), "ETH": Decimal("2000")}).quote_exact_input(
+                "USDC", "ETH", Decimal("100"), 100
+            )
+
+    def test_swap_quote_rejects_minimum_above_expected(self) -> None:
+        from defi_manager.adapters.dex import SwapQuote
+        with self.assertRaises(ValueError):
+            SwapQuote("test", "USDC", "ETH", Decimal("100"), Decimal("1"), Decimal("2"), 0, Decimal("1"))
+
+    def test_swap_intent_builder_maps_quote_to_intent(self) -> None:
+        quote = SwapQuote(
+            "test",
+            "ETH",
+            "USDC",
+            Decimal("2"),
+            Decimal("4000"),
+            Decimal("3960"),
+            10,
+            Decimal("3"),
+        )
+        intent = SwapIntentBuilder().build(quote, Decimal("2000"))
+        self.assertEqual(intent.asset, "ETH")
+        self.assertEqual(intent.quantity, Decimal("2"))
+        self.assertEqual(intent.price_usd, Decimal("2000"))
+        self.assertEqual(intent.slippage_bps, 100)
+        self.assertEqual(intent.estimated_fee_usd, Decimal("3"))
+
+    def test_quote_to_preflight_to_simulation_is_gated(self) -> None:\n        events = EventBus()\n        safety = AutomationSafetyController(events)\n        portfolio = PortfolioState(cash_usd=Decimal("10000"))\n        pnl = PnLTracker()\n        risk = RiskManager(RiskPolicy(Decimal("5000"), Decimal("100"), 100, max_price_impact_bps=50, max_gas_usd=Decimal("5")))\n        simulation = SimulationEnvironment(portfolio, pnl, risk, events, safety)\n        adapter = FixedPriceDexAdapter({"ETH": Decimal("2000"), "USDC": Decimal("1")}, gas_usd=Decimal("2"))\n        quote = adapter.quote_exact_input("ETH", "USDC", Decimal("1"), 50)\n        intent = SwapIntentBuilder().build(quote, Decimal("2000"))\n        result = simulation.execute_with_preflight(quote, intent, ExecutionPreflight(QuoteRiskEvaluator(risk.policy), risk))\n        self.assertTrue(result.allowed)\n        self.assertEqual(portfolio.positions["ETH"].quantity, Decimal("1"))\n\n    def test_quote_risk_rejects_excessive_impact_and_gas(self) -> None:
+        policy = RiskPolicy(Decimal("1000"), Decimal("100"), 100, max_price_impact_bps=50, max_gas_usd=Decimal("5"))
+        evaluator = QuoteRiskEvaluator(policy)
+        quote = SwapQuote("test", "ETH", "USDC", Decimal("1"), Decimal("2000"), Decimal("1980"), 100, Decimal("1"))
+        self.assertFalse(evaluator.evaluate(quote).allowed)
+        expensive = SwapQuote("test", "ETH", "USDC", Decimal("1"), Decimal("2000"), Decimal("1980"), 10, Decimal("6"))
+        self.assertFalse(evaluator.evaluate(expensive).allowed)
+
+    def test_quote_risk_accepts_reasonable_quote(self) -> None:
+        policy = RiskPolicy(Decimal("1000"), Decimal("100"), 100, max_price_impact_bps=50, max_gas_usd=Decimal("5"))
+        quote = SwapQuote("test", "ETH", "USDC", Decimal("1"), Decimal("2000"), Decimal("1980"), 20, Decimal("2"))
+        self.assertTrue(QuoteRiskEvaluator(policy).evaluate(quote).allowed)
 
     def test_backtest_executes_a_cross_and_tracks_fees(self) -> None:
         start = datetime(2025, 1, 1, tzinfo=UTC)
@@ -43,6 +96,29 @@ class TradingTests(unittest.TestCase):
         signal = RsiStrategy(period=3).evaluate(candles)
         self.assertEqual(signal.action, "sell")
 
+
+    def test_backtest_can_load_candles_from_market_data_provider(self) -> None:
+        start = datetime(2025, 1, 1, tzinfo=UTC)
+        candles = [Candle(start + timedelta(days=index), Decimal(price)) for index, price in enumerate([10, 9, 8, 9, 11])]
+        provider = InMemoryMarketDataProvider({"ETH": candles})
+        result = BacktestRunner().run_from_provider(
+            "ETH",
+            provider,
+            start,
+            start + timedelta(days=5),
+            MovingAverageCrossStrategy(2, 3),
+            BacktestConfig(Decimal("100")),
+        )
+        self.assertEqual(len(result.equity_curve), 5)
+
+    def test_backtest_rejects_unsorted_candles(self) -> None:
+        start = datetime(2025, 1, 1, tzinfo=UTC)
+        candles = [
+            Candle(start + timedelta(days=1), Decimal("10")),
+            Candle(start, Decimal("9")),
+        ]
+        with self.assertRaises(ValueError):
+            BacktestRunner().run("ETH", candles, MovingAverageCrossStrategy(2, 3), BacktestConfig(Decimal("100")))
 
 class BuyThenHold:
     name = "buy-then-hold"

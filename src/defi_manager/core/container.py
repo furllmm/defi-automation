@@ -51,7 +51,7 @@ class Container:
         events.subscribe("*", audit.record)
         portfolio, pnl, treasury = PortfolioState(), PnLTracker(), Treasury.default()
         treasury.validate()
-        risk = RiskManager(RiskPolicy(settings.max_trade_notional_usd, settings.max_daily_loss_usd, settings.max_slippage_bps, max_module_exposure_usd=settings.max_module_exposure_usd))
+        risk = RiskManager(RiskPolicy(settings.max_trade_notional_usd, settings.max_daily_loss_usd, settings.max_slippage_bps, max_price_impact_bps=settings.max_price_impact_bps, max_gas_usd=settings.max_gas_usd, max_asset_exposure_usd=settings.max_asset_exposure_usd, max_module_exposure_usd=settings.max_module_exposure_usd))
         safety = AutomationSafetyController(events)
         scheduler = Scheduler(safety, events)
         notifications = InMemoryNotificationSink()

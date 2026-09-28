@@ -97,6 +97,12 @@ class RiskManager:
             return RiskDecision(False, "asset exposure exceeds limit")
         if intent.side == "sell" and intent.notional_usd > current_asset_exposure_usd:
             return RiskDecision(False, "sell exceeds current asset exposure")
+        if intent.slippage_bps < 0 or intent.price_impact_bps < 0 or intent.estimated_gas_usd < 0:
+            return RiskDecision(False, "execution cost and impact values cannot be negative")
+        if intent.price_impact_bps > self._policy.max_price_impact_bps:
+            return RiskDecision(False, "price impact exceeds limit")
+        if intent.estimated_gas_usd > self._policy.max_gas_usd:
+            return RiskDecision(False, "gas cost exceeds limit")
         if intent.slippage_bps > self._policy.max_slippage_bps:
             return RiskDecision(False, "slippage exceeds limit")
         if realized_daily_pnl_usd <= -self._policy.max_daily_loss_usd:

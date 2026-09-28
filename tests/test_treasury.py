@@ -150,11 +150,10 @@ def test_treasury_rebalance_allocates_cash_only_after_risk_gate():
     treasury = Treasury.default()
     risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
 
-    actual = treasury.rebalance(
+    actual = TreasuryService(treasury, risk, EventBus()).rebalance(
         portfolio,
         {},
         (AllocationChange("trading", Decimal("40")),),
-        risk,
         Decimal("100"),
     )
 
@@ -167,11 +166,10 @@ def test_treasury_rebalance_deallocates_back_to_cash():
     treasury = Treasury.default()
     risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
 
-    actual = treasury.rebalance(
+    actual = TreasuryService(treasury, risk, EventBus()).rebalance(
         portfolio,
         {"trading": Decimal("40")},
         (AllocationChange("trading", Decimal("-25")),),
-        risk,
         Decimal("100"),
     )
 
@@ -240,11 +238,10 @@ def test_treasury_rebalance_is_rejected_by_risk_manager():
     )
 
     try:
-        treasury.rebalance(
+        TreasuryService(treasury, risk, EventBus()).rebalance(
             portfolio,
             {"trading": Decimal("90")},
             (AllocationChange("trading", Decimal("20")),),
-            risk,
             Decimal("1000"),
         )
     except ValueError as exc:
@@ -253,3 +250,24 @@ def test_treasury_rebalance_is_rejected_by_risk_manager():
         raise AssertionError("risk-rejected treasury rebalance should fail")
 
     assert portfolio.cash_usd == Decimal("1000")
+
+
+def test_treasury_service_publishes_risk_and_applied_events():
+    portfolio = PortfolioState(cash_usd=Decimal("100"))
+    treasury = Treasury.default()
+    risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
+    events = EventBus()
+    received = []
+    events.subscribe("*", received.append)
+
+    TreasuryService(treasury, risk, events).rebalance(
+        portfolio,
+        {},
+        (AllocationChange("trading", Decimal("40")),),
+        Decimal("100"),
+    )
+
+    assert [event.name for event in received] == [
+        "treasury.rebalance.risk",
+        "treasury.rebalance.applied",
+    ]

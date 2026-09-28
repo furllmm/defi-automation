@@ -109,7 +109,7 @@ class Treasury:
 
         return self.apply_change(actual_amounts_usd, change)
 
-    def apply_rebalance(
+    def _apply_rebalance(
         self,
         portfolio: PortfolioState,
         actual_amounts_usd: dict[str, Decimal],

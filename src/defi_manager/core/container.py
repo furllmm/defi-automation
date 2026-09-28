@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from decimal import Decimal
+from defi_manager.ai import AIEngine, AIExecutionCoordinator
 from defi_manager.core.config import Settings
 from defi_manager.core.events import EventBus
 from defi_manager.core.notifications import InMemoryNotificationSink, NotificationDispatcher
@@ -41,6 +42,8 @@ class Container:
     simulation: SimulationEnvironment
     preflight: ExecutionPreflight
     paper_executor: PaperExecutor
+    ai: AIEngine
+    ai_execution: AIExecutionCoordinator
 
     @classmethod
     def build(cls, settings: Settings) -> "Container":
@@ -63,4 +66,6 @@ class Container:
         preflight = ExecutionPreflight(QuoteRiskEvaluator(risk.policy), risk)
         paper_executor = PaperExecutor(simulation, preflight)
         treasury_service = TreasuryService(treasury, risk, events, safety)
-        return cls(settings, database, events, audit, portfolio, pnl, treasury, treasury_service, risk, safety, scheduler, notifications, lending, staking, liquidity, simulation, preflight, paper_executor)
+        ai = AIEngine()
+        ai_execution = AIExecutionCoordinator(ai, paper_executor)
+        return cls(settings, database, events, audit, portfolio, pnl, treasury, treasury_service, risk, safety, scheduler, notifications, lending, staking, liquidity, simulation, preflight, paper_executor, ai, ai_execution)

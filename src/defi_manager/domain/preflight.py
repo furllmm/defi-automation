@@ -22,11 +22,31 @@ class ExecutionPreflight:
         self._quote_risk = quote_risk
         self._risk_manager = risk_manager
 
-    def evaluate(self, quote: SwapQuote, intent: ExecutionIntent, realized_daily_pnl_usd: Decimal, current_asset_exposure_usd: Decimal = Decimal("0")) -> PreflightResult:
+    def evaluate(
+        self,
+        quote: SwapQuote,
+        intent: ExecutionIntent,
+        realized_daily_pnl_usd: Decimal,
+        current_asset_exposure_usd: Decimal = Decimal("0"),
+    ) -> PreflightResult:
         quote_decision = self._quote_risk.evaluate(quote)
         if not quote_decision.allowed:
-            return PreflightResult(False, f"quote rejected: {quote_decision.reason}", quote_decision, RiskDecision(False, "not evaluated"))
-        execution_decision = self._risk_manager.evaluate(intent, realized_daily_pnl_usd)
+            return PreflightResult(
+                False,
+                f"quote rejected: {quote_decision.reason}",
+                quote_decision,
+                RiskDecision(False, "not evaluated"),
+            )
+        execution_decision = self._risk_manager.evaluate(
+            intent,
+            realized_daily_pnl_usd,
+            current_asset_exposure_usd,
+        )
         if not execution_decision.allowed:
-            return PreflightResult(False, f"execution rejected: {execution_decision.reason}", quote_decision, execution_decision)
+            return PreflightResult(
+                False,
+                f"execution rejected: {execution_decision.reason}",
+                quote_decision,
+                execution_decision,
+            )
         return PreflightResult(True, "approved", quote_decision, execution_decision)

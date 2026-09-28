@@ -55,3 +55,22 @@ class RiskManagerTests(unittest.TestCase):
         )
         self.assertFalse(decision.allowed)
         self.assertEqual(decision.reason, "leverage exceeds limit")
+
+
+    def test_risk_rejects_excessive_price_impact_and_gas(self) -> None:
+        manager = RiskManager(
+            RiskPolicy(Decimal("100"), Decimal("25"), 50, max_price_impact_bps=100, max_gas_usd=Decimal("5"))
+        )
+        impact = manager.evaluate(
+            ExecutionIntent("ETH", "buy", Decimal("1"), Decimal("10"), 10, price_impact_bps=101),
+            Decimal("0"),
+        )
+        self.assertFalse(impact.allowed)
+        self.assertEqual(impact.reason, "price impact exceeds limit")
+
+        gas = manager.evaluate(
+            ExecutionIntent("ETH", "buy", Decimal("1"), Decimal("10"), 10, estimated_gas_usd=Decimal("5.01")),
+            Decimal("0"),
+        )
+        self.assertFalse(gas.allowed)
+        self.assertEqual(gas.reason, "gas cost exceeds limit")

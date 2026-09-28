@@ -67,5 +67,5 @@ class Container:
         paper_executor = PaperExecutor(simulation, preflight)
         treasury_service = TreasuryService(treasury, risk, events, safety)
         ai = AIEngine()
-        ai_execution = AIExecutionCoordinator(ai, paper_executor)
+        ai_execution = AIExecutionCoordinator(ai, paper_executor, events)
         return cls(settings, database, events, audit, portfolio, pnl, treasury, treasury_service, risk, safety, scheduler, notifications, lending, staking, liquidity, simulation, preflight, paper_executor, ai, ai_execution)

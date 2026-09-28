@@ -80,3 +80,20 @@ class AIExecutionTests(unittest.TestCase):
         self.assertTrue(results[0].decision.allowed)
         self.assertEqual(self.app.portfolio.positions["ETH"].quantity, Decimal("1"))
         self.assertEqual(self.app.portfolio.cash_usd, Decimal("90"))
+
+    def test_ai_execution_publishes_audit_events(self) -> None:
+        self.app.portfolio.cash_usd = Decimal("100")
+        seen = []
+        self.app.events.subscribe("ai.proposal", seen.append)
+        self.app.events.subscribe("ai.execution.decision", seen.append)
+
+        self.app.ai_execution.propose_and_execute(
+            self.app.portfolio,
+            asset="ETH",
+            price_usd=Decimal("10"),
+            quantity=Decimal("1"),
+        )
+
+        self.assertEqual([event.name for event in seen], ["ai.proposal", "ai.execution.decision"])
+        self.assertEqual(seen[0].payload["reason"], "phase-1 simulation proposal")
+        self.assertTrue(seen[1].payload["allowed"])

@@ -12,6 +12,7 @@ from defi_manager.domain.quote_risk import QuoteRiskEvaluator
 from defi_manager.domain.preflight import ExecutionPreflight
 from defi_manager.execution import PaperExecutor
 from defi_manager.domain.treasury import Treasury
+from defi_manager.domain.treasury_service import TreasuryService
 from defi_manager.lending.analyzer import LendingAnalyzer
 from defi_manager.lending.models import LendingPolicy
 from defi_manager.liquidity.analyzer import LiquidityAnalyzer
@@ -29,6 +30,7 @@ class Container:
     portfolio: PortfolioState
     pnl: PnLTracker
     treasury: Treasury
+    treasury_service: TreasuryService
     risk: RiskManager
     safety: AutomationSafetyController
     scheduler: Scheduler
@@ -60,4 +62,5 @@ class Container:
         simulation = SimulationEnvironment(portfolio, pnl, risk, events, safety)
         preflight = ExecutionPreflight(QuoteRiskEvaluator(risk.policy), risk)
         paper_executor = PaperExecutor(simulation, preflight)
-        return cls(settings, database, events, audit, portfolio, pnl, treasury, risk, safety, scheduler, notifications, lending, staking, liquidity, simulation, preflight, paper_executor)
+        treasury_service = TreasuryService(treasury, risk, events)
+        return cls(settings, database, events, audit, portfolio, pnl, treasury, treasury_service, risk, safety, scheduler, notifications, lending, staking, liquidity, simulation, preflight, paper_executor)

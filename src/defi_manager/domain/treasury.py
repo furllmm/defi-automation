@@ -2,8 +2,6 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from .models import PortfolioState
-from .risk import RiskManager
-
 
 @dataclass(frozen=True)
 class CapitalAllocation:
@@ -111,25 +109,17 @@ class Treasury:
 
         return self.apply_change(actual_amounts_usd, change)
 
-    def rebalance(
+    def apply_rebalance(
         self,
         portfolio: PortfolioState,
         actual_amounts_usd: dict[str, Decimal],
         changes: tuple[AllocationChange, ...],
-        risk_manager: RiskManager,
-        total_equity_usd: Decimal,
     ) -> dict[str, Decimal]:
         projected = self.project_rebalance(actual_amounts_usd, changes)
         current_allocated = sum(actual_amounts_usd.values(), Decimal("0"))
-
-        decision = risk_manager.evaluate_treasury_rebalance(
-            projected,
-            total_equity_usd,
-            portfolio.cash_usd,
-            current_allocated,
-        )
-        if not decision.allowed:
-            raise ValueError(f"Treasury rebalance rejected: {decision.reason}")
+        projected_total = sum(projected.values(), Decimal("0"))
+        if projected_total - current_allocated > portfolio.cash_usd:
+            raise ValueError("insufficient cash for rebalance")
 
         cash_before = portfolio.cash_usd
         working = dict(actual_amounts_usd)

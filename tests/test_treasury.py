@@ -143,30 +143,53 @@ def test_zero_allocation_change_is_rejected():
         raise AssertionError("zero allocation change should be rejected")
 
 
-def test_treasury_transfer_allocates_cash():
-    from defi_manager.domain.treasury import AllocationChange
+def test_treasury_rebalance_allocates_cash_only_after_risk_gate():
     portfolio = PortfolioState(cash_usd=Decimal("100"))
     treasury = Treasury.default()
-    actual = treasury.transfer(portfolio, {}, AllocationChange("trading", Decimal("40")))
+    risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
+
+    actual = treasury.rebalance(
+        portfolio,
+        {},
+        (AllocationChange("trading", Decimal("40")),),
+        risk,
+        Decimal("100"),
+    )
+
     assert portfolio.cash_usd == Decimal("60")
     assert actual["trading"] == Decimal("40")
 
 
-def test_treasury_transfer_deallocates_back_to_cash():
-    from defi_manager.domain.treasury import AllocationChange
+def test_treasury_rebalance_deallocates_back_to_cash():
     portfolio = PortfolioState(cash_usd=Decimal("60"))
     treasury = Treasury.default()
-    actual = treasury.transfer(portfolio, {"trading": Decimal("40")}, AllocationChange("trading", Decimal("-25")))
+    risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
+
+    actual = treasury.rebalance(
+        portfolio,
+        {"trading": Decimal("40")},
+        (AllocationChange("trading", Decimal("-25")),),
+        risk,
+        Decimal("100"),
+    )
+
     assert portfolio.cash_usd == Decimal("85")
     assert actual["trading"] == Decimal("15")
 
 
-def test_treasury_transfer_rejects_insufficient_cash():
-    from defi_manager.domain.treasury import AllocationChange
+def test_treasury_rebalance_rejects_insufficient_cash():
     portfolio = PortfolioState(cash_usd=Decimal("10"))
     treasury = Treasury.default()
+    risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
+
     try:
-        treasury.transfer(portfolio, {}, AllocationChange("trading", Decimal("11")))
+        treasury.rebalance(
+            portfolio,
+            {},
+            (AllocationChange("trading", Decimal("11")),),
+            risk,
+            Decimal("100"),
+        )
     except ValueError:
         pass
     else:

@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from defi_manager.core.events import Event, EventBus
 from defi_manager.domain.models import PortfolioState
-from defi_manager.domain.risk import RiskManager, RiskDecision
+from defi_manager.domain.risk import RiskManager
 from defi_manager.domain.treasury import AllocationChange, Treasury
 
 

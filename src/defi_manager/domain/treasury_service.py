@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from defi_manager.core.events import Event, EventBus
+from defi_manager.core.safety import AutomationSafetyController
 from defi_manager.domain.models import PortfolioState
 from defi_manager.domain.risk import RiskManager
 from defi_manager.domain.treasury import AllocationChange, Treasury
@@ -12,6 +13,7 @@ class TreasuryService:
     treasury: Treasury
     risk: RiskManager
     events: EventBus
+    safety: AutomationSafetyController
 
     def rebalance(
         self,
@@ -20,6 +22,11 @@ class TreasuryService:
         changes: tuple[AllocationChange, ...],
         total_equity_usd: Decimal,
     ) -> dict[str, Decimal]:
+        safety_decision = self.safety.execution_decision()
+        self.events.publish(Event("treasury.rebalance.safety", {"allowed": safety_decision.allowed, "reason": safety_decision.reason}))
+        if not safety_decision.allowed:
+            raise ValueError(f"Treasury rebalance rejected: {safety_decision.reason}")
+
         projected = self.treasury.project_rebalance(actual_amounts_usd, changes)
         current_allocated = sum(actual_amounts_usd.values(), Decimal("0"))
 

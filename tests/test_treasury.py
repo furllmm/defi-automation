@@ -272,3 +272,26 @@ def test_treasury_service_publishes_risk_and_applied_events():
         "treasury.rebalance.risk",
         "treasury.rebalance.applied",
     ]
+
+
+def test_treasury_rebalance_is_blocked_when_automation_is_paused():
+    portfolio = PortfolioState(cash_usd=Decimal("100"))
+    treasury = Treasury.default()
+    risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
+    events = EventBus()
+    safety = AutomationSafetyController(events)
+    safety.pause("operator requested pause")
+
+    try:
+        TreasuryService(treasury, risk, events, safety).rebalance(
+            portfolio,
+            {},
+            (AllocationChange("trading", Decimal("40")),),
+            Decimal("100"),
+        )
+    except ValueError as exc:
+        assert str(exc) == "Treasury rebalance rejected: automation manually paused"
+    else:
+        raise AssertionError("paused automation should block treasury rebalance")
+
+    assert portfolio.cash_usd == Decimal("100")

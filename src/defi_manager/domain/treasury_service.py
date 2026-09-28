@@ -43,7 +43,7 @@ class TreasuryService:
         if not decision.allowed:
             raise ValueError(f"Treasury rebalance rejected: {decision.reason}")
 
-        result = self.treasury.apply_rebalance(portfolio, actual_amounts_usd, changes)
+        result = self.treasury._apply_rebalance(portfolio, actual_amounts_usd, changes)
         self.events.publish(
             Event(
                 "treasury.rebalance.applied",

@@ -1,7 +1,8 @@
 from decimal import Decimal
 
 from defi_manager.domain.models import PortfolioState
-from defi_manager.domain.treasury import CapitalAllocation, Treasury
+from defi_manager.domain.treasury import CapitalAllocation, Treasury, AllocationChange
+from defi_manager.domain.risk import RiskManager, RiskPolicy
 
 
 def test_treasury_snapshot_uses_portfolio_equity():
@@ -176,10 +177,13 @@ def test_treasury_rebalance_moves_capital_between_modules():
     from defi_manager.domain.treasury import AllocationChange
     portfolio = PortfolioState(cash_usd=Decimal("100"))
     treasury = Treasury.default()
+    risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
     actual = treasury.rebalance(
         portfolio,
         {"trading": Decimal("40"), "lending": Decimal("20")},
         (AllocationChange("trading", Decimal("-10")), AllocationChange("lending", Decimal("10"))),
+        risk,
+        Decimal("100"),
     )
     assert portfolio.cash_usd == Decimal("100")
     assert actual == {"trading": Decimal("30"), "lending": Decimal("30")}
@@ -190,13 +194,39 @@ def test_treasury_rebalance_rolls_back_cash_on_failure():
     portfolio = PortfolioState(cash_usd=Decimal("100"))
     treasury = Treasury.default()
     try:
+        risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
         treasury.rebalance(
             portfolio,
             {"trading": Decimal("20")},
             (AllocationChange("trading", Decimal("10")), AllocationChange("lending", Decimal("-1"))),
+            risk,
+            Decimal("100"),
         )
     except ValueError:
         pass
     else:
         raise AssertionError("invalid rebalance should fail")
     assert portfolio.cash_usd == Decimal("100")
+
+
+def test_treasury_rebalance_is_rejected_by_risk_manager():
+    portfolio = PortfolioState(cash_usd=Decimal("1000"))
+    treasury = Treasury.default()
+    risk = RiskManager(
+        RiskPolicy(Decimal("100"), Decimal("25"), 50, max_module_exposure_usd=Decimal("100"))
+    )
+
+    try:
+        treasury.rebalance(
+            portfolio,
+            {"trading": Decimal("90")},
+            (AllocationChange("trading", Decimal("20")),),
+            risk,
+            Decimal("1000"),
+        )
+    except ValueError as exc:
+        assert str(exc) == "Treasury rebalance rejected: module exposure exceeds limit"
+    else:
+        raise AssertionError("risk-rejected treasury rebalance should fail")
+
+    assert portfolio.cash_usd == Decimal("1000")

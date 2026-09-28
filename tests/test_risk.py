@@ -45,3 +45,13 @@ class RiskManagerTests(unittest.TestCase):
         decision = manager.evaluate_treasury_rebalance({"trading": Decimal("120"), "lending": Decimal("80")}, Decimal("500"), Decimal("50"), Decimal("150"))
         self.assertTrue(decision.allowed)
         self.assertEqual(decision.reason, "approved")
+
+
+    def test_risk_rejects_excessive_leverage(self) -> None:
+        manager = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50, max_leverage=Decimal("1")))
+        decision = manager.evaluate(
+            ExecutionIntent("ETH", "buy", Decimal("1"), Decimal("10"), 1, leverage=Decimal("2")),
+            Decimal("0"),
+        )
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.reason, "leverage exceeds limit")

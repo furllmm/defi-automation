@@ -58,7 +58,7 @@ class AIExecutionTests(unittest.TestCase):
             self.app.portfolio,
             asset="ETH",
             price_usd=Decimal("10"),
-            quantity=Decimal("20"),
+            quantity=Decimal("101"),
         )
 
         self.assertEqual(len(results), 1)

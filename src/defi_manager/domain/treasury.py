@@ -92,7 +92,7 @@ class Treasury:
             projected = self.apply_change(projected, change)
         return projected
 
-    def transfer(
+    def _transfer(
         self,
         portfolio: PortfolioState,
         actual_amounts_usd: dict[str, Decimal],
@@ -140,7 +140,7 @@ class Treasury:
                 sorted(changes, key=lambda change: change.amount_usd > 0)
             )
             for change in ordered_changes:
-                working = self.transfer(portfolio, working, change)
+                working = self._transfer(portfolio, working, change)
             return working
         except Exception:
             portfolio.cash_usd = cash_before

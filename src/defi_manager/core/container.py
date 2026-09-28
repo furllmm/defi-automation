@@ -62,5 +62,5 @@ class Container:
         simulation = SimulationEnvironment(portfolio, pnl, risk, events, safety)
         preflight = ExecutionPreflight(QuoteRiskEvaluator(risk.policy), risk)
         paper_executor = PaperExecutor(simulation, preflight)
-        treasury_service = TreasuryService(treasury, risk, events)
+        treasury_service = TreasuryService(treasury, risk, events, safety)
         return cls(settings, database, events, audit, portfolio, pnl, treasury, treasury_service, risk, safety, scheduler, notifications, lending, staking, liquidity, simulation, preflight, paper_executor)

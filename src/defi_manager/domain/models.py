@@ -10,6 +10,8 @@ class ExecutionIntent:
     slippage_bps: int
     estimated_fee_usd: Decimal = Decimal("0")
     leverage: Decimal = Decimal("1")
+    price_impact_bps: int = 0
+    estimated_gas_usd: Decimal = Decimal("0")
 
     @property
     def notional_usd(self) -> Decimal:

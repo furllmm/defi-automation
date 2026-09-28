@@ -3,6 +3,8 @@ from decimal import Decimal
 from defi_manager.domain.models import PortfolioState
 from defi_manager.domain.treasury import CapitalAllocation, Treasury, AllocationChange
 from defi_manager.domain.risk import RiskManager, RiskPolicy
+from defi_manager.domain.treasury_service import TreasuryService
+from defi_manager.core.events import EventBus
 
 
 def test_treasury_snapshot_uses_portfolio_equity():
@@ -183,11 +185,10 @@ def test_treasury_rebalance_rejects_insufficient_cash():
     risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
 
     try:
-        treasury.rebalance(
+        TreasuryService(treasury, risk, EventBus()).rebalance(
             portfolio,
             {},
             (AllocationChange("trading", Decimal("11")),),
-            risk,
             Decimal("100"),
         )
     except ValueError:
@@ -201,11 +202,11 @@ def test_treasury_rebalance_moves_capital_between_modules():
     portfolio = PortfolioState(cash_usd=Decimal("100"))
     treasury = Treasury.default()
     risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
-    actual = treasury.rebalance(
+    service = TreasuryService(treasury, risk, EventBus())
+    actual = service.rebalance(
         portfolio,
         {"trading": Decimal("40"), "lending": Decimal("20")},
         (AllocationChange("trading", Decimal("-10")), AllocationChange("lending", Decimal("10"))),
-        risk,
         Decimal("100"),
     )
     assert portfolio.cash_usd == Decimal("100")
@@ -218,11 +219,10 @@ def test_treasury_rebalance_rolls_back_cash_on_failure():
     treasury = Treasury.default()
     try:
         risk = RiskManager(RiskPolicy(Decimal("100"), Decimal("25"), 50))
-        treasury.rebalance(
+        TreasuryService(treasury, risk, EventBus()).rebalance(
             portfolio,
             {"trading": Decimal("20")},
             (AllocationChange("trading", Decimal("10")), AllocationChange("lending", Decimal("-1"))),
-            risk,
             Decimal("100"),
         )
     except ValueError:

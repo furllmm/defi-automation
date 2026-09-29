@@ -29,6 +29,15 @@ class SimulationEnvironment:
         self._events.publish(Event("risk.decision", {"allowed": decision.allowed, "reason": decision.reason, "asset": intent.asset}))
         if not decision.allowed:
             return decision
+        funding = self._funding_decision(intent)
+        if not funding.allowed:
+            self._events.publish(
+                Event(
+                    "simulation.fill_rejected",
+                    {"asset": intent.asset, "reason": funding.reason},
+                )
+            )
+            return funding
         self._apply_approved_fill(intent)
         return decision
 
@@ -38,9 +47,19 @@ class SimulationEnvironment:
         daily_pnl = self._pnl.daily_pnl(datetime.now(UTC))
         return self._risk.evaluate(intent, daily_pnl, exposure)
 
+    def _funding_decision(self, intent: ExecutionIntent) -> RiskDecision:
+        if intent.side != "buy":
+            return RiskDecision(True, "funding check not required")
+        required_cash = intent.notional_usd + intent.estimated_fee_usd
+        if required_cash > self._portfolio.cash_usd:
+            return RiskDecision(False, "insufficient simulated cash")
+        return RiskDecision(True, "funding available")
+
     def _apply_approved_fill(self, intent: ExecutionIntent) -> None:
-        self._pnl.record_fill(self._portfolio, intent)
+        # Mutate the portfolio first. PnL is committed only after the fill succeeds,
+        # so a failed balance check cannot leave accounting state partially updated.
         self._portfolio.apply_fill(intent)
+        self._pnl.record_fill(self._portfolio, intent)
         self._events.publish(
             Event(
                 "simulation.fill",
@@ -76,6 +95,15 @@ class SimulationEnvironment:
         )
         if not result.allowed:
             return result.execution_decision
+        funding = self._funding_decision(intent)
+        if not funding.allowed:
+            self._events.publish(
+                Event(
+                    "simulation.fill_rejected",
+                    {"asset": intent.asset, "reason": funding.reason},
+                )
+            )
+            return funding
 
         self._apply_approved_fill(intent)
         return result.execution_decision

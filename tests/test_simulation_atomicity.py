@@ -53,7 +53,7 @@ class SimulationAtomicityTests(unittest.TestCase):
         result = simulation.execute(intent)
 
         self.assertTrue(result.allowed)
-        self.assertEqual(simulation.portfolio.cash_usd, Decimal("-11") if False else Decimal("89"))
+        self.assertEqual(simulation.portfolio.cash_usd, Decimal("89"))
         self.assertEqual(simulation.portfolio.positions["ETH"].quantity, Decimal("0.1"))
         self.assertEqual(simulation.pnl.fees_usd, Decimal("1"))
 

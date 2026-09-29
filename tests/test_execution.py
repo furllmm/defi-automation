@@ -50,6 +50,30 @@ class ExecutionTests(unittest.TestCase):
         self.assertFalse(result.allowed)
         self.assertEqual(result.reason, "preflight is required for quote-aware execution")
 
+    def test_quote_rejection_reason_reaches_executor(self) -> None:
+        simulation = self._simulation()
+        policy = RiskPolicy(Decimal("5000"), Decimal("100"), 100, max_price_impact_bps=50, max_gas_usd=Decimal("5"))
+        risk = RiskManager(policy)
+        preflight = ExecutionPreflight(QuoteRiskEvaluator(policy), risk)
+        adapter = FixedPriceDexAdapter({"ETH": Decimal("2000"), "USDC": Decimal("1")}, gas_usd=Decimal("2"))
+        quote = adapter.quote_exact_input("ETH", "USDC", Decimal("1"), 50)
+        intent = SwapIntentBuilder().build(quote, Decimal("2000"))
+        unsafe_quote = quote.__class__(
+            quote.adapter,
+            quote.base_asset,
+            quote.quote_asset,
+            quote.amount_in,
+            quote.expected_amount_out,
+            quote.minimum_amount_out,
+            51,
+            quote.estimated_gas_usd,
+        )
+
+        result = PaperExecutor(simulation, preflight).execute_with_quote(unsafe_quote, intent)
+
+        self.assertFalse(result.allowed)
+        self.assertEqual(result.reason, "quote rejected: price impact exceeds limit")
+
     def test_quote_aware_execution_runs_preflight(self) -> None:
         simulation = self._simulation()
         policy = RiskPolicy(Decimal("5000"), Decimal("100"), 100, max_price_impact_bps=50, max_gas_usd=Decimal("5"))

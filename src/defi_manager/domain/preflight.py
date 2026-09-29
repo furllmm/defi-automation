@@ -31,11 +31,12 @@ class ExecutionPreflight:
     ) -> PreflightResult:
         quote_decision = self._quote_risk.evaluate(quote)
         if not quote_decision.allowed:
+            reason = f"quote rejected: {quote_decision.reason}"
             return PreflightResult(
                 False,
-                f"quote rejected: {quote_decision.reason}",
+                reason,
                 quote_decision,
-                RiskDecision(False, "not evaluated"),
+                RiskDecision(False, reason),
             )
         execution_decision = self._risk_manager.evaluate(
             intent,
